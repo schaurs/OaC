@@ -6,6 +6,16 @@
     - name: Say Hello
       debug:
         msg: "Say Hello, World!"
+    - name: Set webhook payload
+      set_fact:
+        webhook_payload:
+          action: "push"
+          repository:
+            name: "OaC"
+            full_name: "schaurs/OaC"
+          sender:
+            login: "schaurs"
     - name: Debug webhook payload
       debug:
         msg: "{{ webhook_payload }}"
+      when: webhook_payload is defined
