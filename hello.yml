@@ -6,3 +6,6 @@
     - name: Say Hello
       debug:
         msg: "Say Hello, World!"
+    - name: Debug webhook payload
+      debug:
+        msg: "{{ webhook_payload }}"
