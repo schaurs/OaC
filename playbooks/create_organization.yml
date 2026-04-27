@@ -3,20 +3,47 @@
   hosts: localhost
   gather_facts: no
   vars:
-    aap_controller_host: "https://sandbox-aap-suresh-chaurasia-dev.apps.rm3.7wse.p1.openshiftapps.com"
-    aap_oauth_token: "{{ lookup('env', 'CONTROLLER_OAUTH_TOKEN') }}"
+    aap_controller_api: "https://sandbox-aap-suresh-chaurasia-dev.apps.rm3.7wse.p1.openshiftapps.com/api/controller/v2"
     organization_name: "ITIDAAP"
+    aap_oauth_token: "{{ lookup('env', 'CONTROLLER_OAUTH_TOKEN') }}"
 
   tasks:
-    - name: Create organization
-      awx.awx.organization:
-        name: "{{ organization_name }}"
-        description: "ITIDAAP Organization"
-        controller_host: "{{ aap_controller_host }}"
-        controller_oauthtoken: "{{ aap_oauth_token }}"
-        validate_certs: no  # Set to yes in production
-      register: org_result
+    - name: Verify controller OAuth token is available
+      assert:
+        that:
+          - aap_oauth_token is defined
+          - aap_oauth_token | length > 0
+        fail_msg: "The CONTROLLER_OAUTH_TOKEN environment variable must be set."
 
-    - name: Debug organization creation
+    - name: Check whether organization already exists
+      uri:
+        url: "{{ aap_controller_api }}/organizations/?name={{ organization_name | urlencode }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ aap_oauth_token }}"
+        return_content: yes
+        validate_certs: no
+        status_code: 200
+      register: existing_org
+
+    - name: Create organization if missing
+      uri:
+        url: "{{ aap_controller_api }}/organizations/"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ aap_oauth_token }}"
+          Content-Type: "application/json"
+        body: "{{ {'name': organization_name, 'description': 'ITIDAAP Organization'} | to_json }}"
+        return_content: yes
+        validate_certs: no
+        status_code: [200, 201]
+      when: existing_org.json.count == 0
+      register: create_org_result
+
+    - name: Set organization result
+      set_fact:
+        org_result: "{{ create_org_result if existing_org.json.count == 0 else existing_org }}"
+
+    - name: Debug organization result
       debug:
-        msg: "Organization '{{ organization_name }}' created with ID: {{ org_result.id }}"
+        msg: "Organization '{{ organization_name }}' is present. result={{ org_result.json }}"
