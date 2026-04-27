@@ -4,8 +4,7 @@
   gather_facts: no
   vars:
     aap_controller_host: "https://sandbox-aap-suresh-chaurasia-dev.apps.rm3.7wse.p1.openshiftapps.com"
-    aap_username: "admin"  # Replace with actual username
-    aap_password: "password"  # Replace with actual password
+    aap_oauth_token: "{{ lookup('env', 'CONTROLLER_OAUTH_TOKEN') }}"
     organization_name: "ITIDAAP"
 
   tasks:
@@ -14,8 +13,7 @@
         name: "{{ organization_name }}"
         description: "ITIDAAP Organization"
         controller_host: "{{ aap_controller_host }}"
-        controller_username: "{{ aap_username }}"
-        controller_password: "{{ aap_password }}"
+        controller_oauthtoken: "{{ aap_oauth_token }}"
         validate_certs: no  # Set to yes in production
       register: org_result
 
