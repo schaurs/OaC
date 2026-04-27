@@ -1,0 +1,8 @@
+---
+- name: Hello Playbook
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Say Hello
+      debug:
+        msg: "Hello, World!"
