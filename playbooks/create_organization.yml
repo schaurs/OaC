@@ -1,0 +1,24 @@
+---
+- name: Create ITIDAAP Organization in AAP
+  hosts: localhost
+  gather_facts: no
+  vars:
+    aap_controller_host: "https://sandbox-aap-suresh-chaurasia-dev.apps.rm3.7wse.p1.openshiftapps.com"
+    aap_username: "admin"  # Replace with actual username
+    aap_password: "password"  # Replace with actual password
+    organization_name: "ITIDAAP"
+
+  tasks:
+    - name: Create organization
+      awx.awx.organization:
+        name: "{{ organization_name }}"
+        description: "ITIDAAP Organization"
+        controller_host: "{{ aap_controller_host }}"
+        controller_username: "{{ aap_username }}"
+        controller_password: "{{ aap_password }}"
+        validate_certs: no  # Set to yes in production
+      register: org_result
+
+    - name: Debug organization creation
+      debug:
+        msg: "Organization '{{ organization_name }}' created with ID: {{ org_result.id }}"

@@ -1,0 +1,15 @@
+#!/usr/bin/env ansible-playbook
+---
+- name: Test OaC Collection
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Include hello playbook
+      import_playbook: ../playbooks/hello.yml
+
+    - name: Verify webhook payload is set
+      assert:
+        that:
+          - webhook_payload is defined
+          - webhook_payload.action == "push"
+        fail_msg: "Webhook payload not properly configured"

@@ -1,0 +1,9 @@
+collections:
+  # Add any required collections here
+  - name: awx.awx
+    version: ">=21.0.0"
+
+roles:
+  # Add any required roles here
+  # - name: geerlingguy.docker
+  #   version: "4.1.2"
