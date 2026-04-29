@@ -10,6 +10,7 @@
     organization_name: "suresh_org"
     export_root: "{{ playbook_dir | dirname }}/exports"
     repo_root: "{{ playbook_dir | dirname }}"
+    github_remote: "{{ lookup('env', 'GITHUB_REMOTE_URL') | default('', true) }}"
     push_to_github: true
     github_branch: "main"
     github_commit_message: "Export AAP settings as code"
@@ -94,10 +95,25 @@
         path: "{{ repo_root }}/.git"
       register: repo_git_dir
 
-    - name: Fail if repo root is not a git repository
+    - name: Fail when push_to_github is enabled but no git repo and no remote URL provided
       fail:
-        msg: "Repo root {{ repo_root }} is not a git repository."
-      when: not repo_git_dir.stat.exists
+        msg: >
+          GitHub export requires either an existing git repository or a
+          GITHUB_REMOTE_URL set in the environment for repository initialization.
+          repo_root={{ repo_root }}
+      when: push_to_github and not repo_git_dir.stat.exists and github_remote == ''
+
+    - name: Initialize git repository if missing
+      command: git init "{{ repo_root }}"
+      when: push_to_github and not repo_git_dir.stat.exists
+
+    - name: Configure default branch if git init created a different default branch
+      command: git -C "{{ repo_root }}" symbolic-ref HEAD refs/heads/{{ github_branch }}
+      when: push_to_github and not repo_git_dir.stat.exists
+
+    - name: Add GitHub remote if missing and remote URL is provided
+      command: git -C "{{ repo_root }}" remote add origin "{{ github_remote }}"
+      when: push_to_github and github_remote != '' and not repo_git_dir.stat.exists
 
     - name: Export organization settings to YAML
       copy:
