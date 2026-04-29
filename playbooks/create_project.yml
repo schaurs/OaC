@@ -1,5 +1,5 @@
 ---
-- name: Create sc_Sample_project in AAP
+- name: Create sc_Sample_prj in AAP
   hosts: localhost
   gather_facts: no
   vars_files:
