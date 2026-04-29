@@ -7,7 +7,7 @@
   vars:
     aap_controller_api: "https://sandbox-aap-suresh-chaurasia-dev.apps.rm3.7wse.p1.openshiftapps.com/api/controller/v2"
     organization_name: "suresh_org"
-    project_name: "sc_Sample_project"
+    project_name: "sc_Sample_prj"
     project_scm_url: "https://github.com/schaurs/OaC.git"
     project_scm_type: "git"
     project_scm_credential_name: "suresh_github"
