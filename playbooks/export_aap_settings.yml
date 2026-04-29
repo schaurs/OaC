@@ -9,6 +9,7 @@
     aap_controller_api: "https://sandbox-aap-suresh-chaurasia-dev.apps.rm3.7wse.p1.openshiftapps.com/api/controller/v2"
     organization_name: "suresh_org"
     export_root: "{{ playbook_dir | dirname }}/exports"
+    repo_root: "{{ playbook_dir | dirname }}"
     push_to_github: true
     github_branch: "main"
     github_commit_message: "Export AAP settings as code"
@@ -84,7 +85,19 @@
 
     - name: Print export root path
       debug:
-        msg: "Exporting AAP settings to {{ export_root }}/{{ organization_name }}"
+        msg:
+          - "Export root: {{ export_root }}"
+          - "Repo root: {{ repo_root }}"
+
+    - name: Verify repo root is a Git repository
+      stat:
+        path: "{{ repo_root }}/.git"
+      register: repo_git_dir
+
+    - name: Fail if repo root is not a git repository
+      fail:
+        msg: "Repo root {{ repo_root }} is not a git repository."
+      when: not repo_git_dir.stat.exists
 
     - name: Export organization settings to YAML
       copy:
@@ -118,19 +131,13 @@
       when: org_templates.json.count > 0
 
     - name: Commit exported settings to Git
-      command: git add "exports/{{ organization_name }}"
-      args:
-        chdir: "{{ export_root | dirname }}"
+      command: git -C "{{ repo_root }}" add "exports/{{ organization_name }}"
       when: push_to_github
 
     - name: Commit export files
-      command: git commit -m "{{ github_commit_message }}"
-      args:
-        chdir: "{{ export_root | dirname }}"
+      command: git -C "{{ repo_root }}" commit -m "{{ github_commit_message }}"
       when: push_to_github
 
     - name: Push export commit to GitHub
-      command: git push origin "{{ github_branch }}"
-      args:
-        chdir: "{{ export_root | dirname }}"
+      command: git -C "{{ repo_root }}" push origin "{{ github_branch }}"
       when: push_to_github
