@@ -9,7 +9,7 @@
     aap_controller_api: "https://sandbox-aap-suresh-chaurasia-dev.apps.rm3.7wse.p1.openshiftapps.com/api/controller/v2"
     organization_name: "suresh_org"
     export_root: "{{ playbook_dir | dirname }}/exports"
-    push_to_github: false
+    push_to_github: true
     github_branch: "main"
     github_commit_message: "Export AAP settings as code"
 
@@ -114,7 +114,7 @@
       when: org_templates.json.count > 0
 
     - name: Commit exported settings to Git
-      command: git add .
+      command: git add "{{ export_root | basename }}/{{ organization_name }}"
       args:
         chdir: "{{ export_root | dirname }}"
       when: push_to_github
