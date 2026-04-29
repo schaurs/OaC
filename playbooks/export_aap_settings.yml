@@ -82,6 +82,10 @@
         state: directory
         mode: '0755'
 
+    - name: Print export root path
+      debug:
+        msg: "Exporting AAP settings to {{ export_root }}/{{ organization_name }}"
+
     - name: Export organization settings to YAML
       copy:
         dest: "{{ export_root }}/{{ organization_name }}/organization.yml"
@@ -114,7 +118,7 @@
       when: org_templates.json.count > 0
 
     - name: Commit exported settings to Git
-      command: git add "{{ export_root | basename }}/{{ organization_name }}"
+      command: git add "exports/{{ organization_name }}"
       args:
         chdir: "{{ export_root | dirname }}"
       when: push_to_github
