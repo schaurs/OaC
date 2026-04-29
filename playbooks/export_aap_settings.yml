@@ -1,0 +1,132 @@
+---
+- name: Export AAP organization, project, and template settings as code
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - vars/credentials.yml
+
+  vars:
+    aap_controller_api: "https://sandbox-aap-suresh-chaurasia-dev.apps.rm3.7wse.p1.openshiftapps.com/api/controller/v2"
+    organization_name: "suresh_org"
+    export_root: "{{ playbook_dir | dirname }}/exports"
+    push_to_github: false
+    github_branch: "main"
+    github_commit_message: "Export AAP settings as code"
+
+  tasks:
+    - name: Verify controller OAuth token is available
+      assert:
+        that:
+          - controller_oauth_token is defined
+          - controller_oauth_token | length > 0
+        fail_msg: "The controller_oauth_token must be defined in vars/credentials.yml."
+
+    - name: Look up organization
+      uri:
+        url: "{{ aap_controller_api }}/organizations/?name={{ organization_name | urlencode }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ controller_oauth_token }}"
+        return_content: yes
+        validate_certs: no
+        status_code: 200
+      register: org_lookup
+
+    - name: Fail if organization is not found
+      fail:
+        msg: "Organization '{{ organization_name }}' was not found in AAP."
+      when: org_lookup.json.count == 0
+
+    - name: Set organization data
+      set_fact:
+        organization_data: "{{ org_lookup.json.results[0] }}"
+        organization_id: "{{ org_lookup.json.results[0].id }}"
+
+    - name: Look up projects for organization
+      uri:
+        url: "{{ aap_controller_api }}/projects/?organization_id={{ organization_id }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ controller_oauth_token }}"
+        return_content: yes
+        validate_certs: no
+        status_code: 200
+      register: org_projects
+
+    - name: Look up job templates for organization
+      uri:
+        url: "{{ aap_controller_api }}/job_templates/?organization_id={{ organization_id }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ controller_oauth_token }}"
+        return_content: yes
+        validate_certs: no
+        status_code: 200
+      register: org_templates
+
+    - name: Ensure export root directory exists
+      file:
+        path: "{{ export_root }}/{{ organization_name }}"
+        state: directory
+        mode: '0755'
+
+    - name: Ensure project export directory exists
+      file:
+        path: "{{ export_root }}/{{ organization_name }}/projects"
+        state: directory
+        mode: '0755'
+
+    - name: Ensure template export directory exists
+      file:
+        path: "{{ export_root }}/{{ organization_name }}/job_templates"
+        state: directory
+        mode: '0755'
+
+    - name: Export organization settings to YAML
+      copy:
+        dest: "{{ export_root }}/{{ organization_name }}/organization.yml"
+        content: "{{ organization_data | to_nice_yaml }}"
+
+    - name: Export organization project list to YAML
+      copy:
+        dest: "{{ export_root }}/{{ organization_name }}/projects/list.yml"
+        content: "{{ org_projects.json.results | to_nice_yaml }}"
+      when: org_projects.json.count is defined
+
+    - name: Export organization template list to YAML
+      copy:
+        dest: "{{ export_root }}/{{ organization_name }}/job_templates/list.yml"
+        content: "{{ org_templates.json.results | to_nice_yaml }}"
+      when: org_templates.json.count is defined
+
+    - name: Export each project settings to YAML
+      copy:
+        dest: "{{ export_root }}/{{ organization_name }}/projects/{{ item.name | regex_replace('[^A-Za-z0-9_-]+', '_') }}.yml"
+        content: "{{ item | to_nice_yaml }}"
+      loop: "{{ org_projects.json.results }}"
+      when: org_projects.json.count > 0
+
+    - name: Export each job template settings to YAML
+      copy:
+        dest: "{{ export_root }}/{{ organization_name }}/job_templates/{{ item.name | regex_replace('[^A-Za-z0-9_-]+', '_') }}.yml"
+        content: "{{ item | to_nice_yaml }}"
+      loop: "{{ org_templates.json.results }}"
+      when: org_templates.json.count > 0
+
+    - name: Commit exported settings to Git
+      command: git add .
+      args:
+        chdir: "{{ export_root | dirname }}"
+      when: push_to_github
+
+    - name: Commit export files
+      command: git commit -m "{{ github_commit_message }}"
+      args:
+        chdir: "{{ export_root | dirname }}"
+      when: push_to_github
+
+    - name: Push export commit to GitHub
+      command: git push origin "{{ github_branch }}"
+      args:
+        chdir: "{{ export_root | dirname }}"
+      when: push_to_github
