@@ -1,0 +1,94 @@
+---
+- name: Create sc_sample_propject in AAP
+  hosts: localhost
+  gather_facts: no
+  vars_files:
+    - vars/credentials.yml
+  vars:
+    aap_controller_api: "https://sandbox-aap-suresh-chaurasia-dev.apps.rm3.7wse.p1.openshiftapps.com/api/controller/v2"
+    organization_name: "ITIDAAP"
+    project_name: "sc_sample_propject"
+    project_scm_url: "https://github.com/schaurs/OaC.git"
+    project_scm_type: "git"
+    project_scm_credential_name: "suresh_github"
+    aap_oauth_token: "{{ controller_oauth_token }}"
+
+  tasks:
+    - name: Verify controller OAuth token is available
+      assert:
+        that:
+          - aap_oauth_token is defined
+          - aap_oauth_token | length > 0
+        fail_msg: "The CONTROLLER_OAUTH_TOKEN environment variable or creds file must provide controller_oauth_token."
+
+    - name: Look up ITIDAAP organization ID
+      uri:
+        url: "{{ aap_controller_api }}/organizations/?name={{ organization_name | urlencode }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ aap_oauth_token }}"
+        return_content: yes
+        validate_certs: no
+        status_code: 200
+      register: org_lookup
+
+    - name: Fail if ITIDAAP organization is not found
+      fail:
+        msg: "Organization '{{ organization_name }}' was not found in AAP."
+      when: org_lookup.json.count == 0
+
+    - name: Set organization ID
+      set_fact:
+        organization_id: "{{ org_lookup.json.results[0].id }}"
+
+    - name: Look up SCM credential ID
+      uri:
+        url: "{{ aap_controller_api }}/credentials/?name={{ project_scm_credential_name | urlencode }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ aap_oauth_token }}"
+        return_content: yes
+        validate_certs: no
+        status_code: 200
+      register: credential_lookup
+
+    - name: Fail if SCM credential is not found
+      fail:
+        msg: "SCM credential '{{ project_scm_credential_name }}' was not found in AAP."
+      when: credential_lookup.json.count == 0
+
+    - name: Set SCM credential ID
+      set_fact:
+        project_credential_id: "{{ credential_lookup.json.results[0].id }}"
+
+    - name: Check whether project already exists
+      uri:
+        url: "{{ aap_controller_api }}/projects/?name={{ project_name | urlencode }}&organization_id={{ organization_id }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ aap_oauth_token }}"
+        return_content: yes
+        validate_certs: no
+        status_code: 200
+      register: project_lookup
+
+    - name: Create project if missing
+      uri:
+        url: "{{ aap_controller_api }}/projects/"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ aap_oauth_token }}"
+          Content-Type: "application/json"
+        body: "{{ {'name': project_name, 'organization': organization_id, 'scm_type': project_scm_type, 'scm_url': project_scm_url, 'credential': project_credential_id} | to_json }}"
+        return_content: yes
+        validate_certs: no
+        status_code: [200, 201]
+      when: project_lookup.json.count == 0
+      register: create_project_result
+
+    - name: Debug project result
+      debug:
+        msg: >
+          Project '{{ project_name }}' under organization '{{ organization_name }}' is present.
+          {{ 'created' if project_lookup.json.count == 0 else 'already existed' }}.
+          result={{ (create_project_result if project_lookup.json.count == 0 else project_lookup).json }}
