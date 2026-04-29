@@ -10,7 +10,8 @@
     organization_name: "suresh_org"
     export_root: "{{ playbook_dir | dirname }}/exports"
     repo_root: "{{ playbook_dir | dirname }}"
-    github_remote: "{{ lookup('env', 'GITHUB_REMOTE_URL') | default('', true) }}"
+    github_remote_url: "{{ github_remote_url }}"
+    github_token: "{{ github_token }}"
     push_to_github: true
     github_branch: "main"
     github_commit_message: "Export AAP settings as code"
@@ -95,11 +96,20 @@
         path: "{{ repo_root }}/.git"
       register: repo_git_dir
 
+    - name: Set GitHub remote URL with token if provided
+      set_fact:
+        github_remote: >-
+          {% if github_token is defined and github_token | length > 0 %}
+          {{ github_remote_url | regex_replace('^https://', 'https://' + github_token + '@') }}
+          {% else %}
+          {{ github_remote_url }}
+          {% endif %}
+
     - name: Fail when push_to_github is enabled but no git repo and no remote URL provided
       fail:
         msg: >
           GitHub export requires either an existing git repository or a
-          GITHUB_REMOTE_URL set in the environment for repository initialization.
+          github_remote_url set in vars/credentials.yml for repository initialization.
           repo_root={{ repo_root }}
       when: push_to_github and not repo_git_dir.stat.exists and github_remote == ''
 
